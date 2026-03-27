@@ -1,0 +1,13 @@
+{
+  "name": "cf-tool",
+  "version": "1.0.0",
+  "description": "Cloudflare raw API tool with workflow shortcuts",
+  "type": "module",
+  "bin": {
+    "cf-api": "./cli.js"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "smol-toml": "^1.6.1"
+  }
+}
