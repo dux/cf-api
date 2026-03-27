@@ -24,6 +24,10 @@ import { register as accounts } from './lib/commands/accounts.js'
 import { registerUser, registerIps } from './lib/commands/user.js'
 import { register as deploy } from './lib/commands/deploy.js'
 import { register as install } from './lib/commands/install.js'
+import { register as secret } from './lib/commands/secret.js'
+import { register as d1 } from './lib/commands/d1.js'
+import { register as tail } from './lib/commands/tail.js'
+import { register as deployments } from './lib/commands/deployments.js'
 
 const program = new Command()
 
@@ -50,9 +54,13 @@ program
     purge          cache purge (all or by URL)
     ssl            list/status/setting/set
     firewall       rules/waf/access-rules (alias: fw)
+    tail           live log streaming from a worker
+    secret         list/set/del worker secrets
+    deployments    list/versions/rollback
     workers        list/get/del/routes/subdomain
     kv             ns/keys/get/set/del
     r2             list/create/del
+    d1             list/create/del/query/export
     pages          list/get/deployments
     tunnels        list/get/del/config
     accounts       list accounts
@@ -84,6 +92,10 @@ workers(program)
 pages(program)
 tunnels(program)
 accounts(program)
+secret(program)
+d1(program)
+tail(program)
+deployments(program)
 registerUser(program)
 registerIps(program)
 
@@ -103,17 +115,20 @@ if (args.length === 0) {
   const C = '\x1b[36m'
   const X = '\x1b[0m'
   process.stderr.write(`
-  ${B}cf-api${X} - Cloudflare API tool ${D}v1.0.0${X}
+  ${B}cf-api${X} - Cloudflare API tool ${D}v1.0.0 by @dux${X}
+  ${D}https://github.com/dux/cf-api${X}
 
   ${B}raw${X}  ${C}get${X}|${C}list${X}|${C}create${X}|${C}update${X}|${C}edit${X}|${C}delete${X} <path> [body]   ${D}any CF endpoint${X}
 
-  ${B}deploy${X}          ${D}worker from wrangler.toml${X}        ${B}accounts${X}  ${D}list accounts${X}
-  ${B}zones${X}|domains   ${D}list/get/settings${X}                ${B}user${X}|me   ${D}current user${X}
-  ${B}dns${X}             ${D}list/add/edit/del/export${X}         ${B}ips${X}       ${D}CF IP ranges${X}
-  ${B}purge${X}           ${D}cache purge${X}                      ${B}ssl${X}       ${D}certs + mode${X}
+  ${B}deploy${X}          ${D}worker from wrangler.toml${X}        ${B}accounts${X}     ${D}list accounts${X}
+  ${B}zones${X}|domains   ${D}list/get/settings${X}                ${B}user${X}|me      ${D}current user${X}
+  ${B}dns${X}             ${D}list/add/edit/del/export${X}         ${B}ips${X}          ${D}CF IP ranges${X}
+  ${B}purge${X}           ${D}cache purge${X}                      ${B}ssl${X}          ${D}certs + mode${X}
   ${B}workers${X}|worker  ${D}list/get/del/routes${X}              ${B}firewall${X}|fw  ${D}rules/waf${X}
-  ${B}kv${X}              ${D}ns/keys/get/set/del${X}              ${B}pages${X}     ${D}list/get/deploys${X}
-  ${B}r2${X}              ${D}buckets${X}                          ${B}tunnels${X}   ${D}list/get/del/config${X}
+  ${B}tail${X}|logs       ${D}live worker log stream${X}           ${B}pages${X}        ${D}list/get/deploys${X}
+  ${B}secret${X}          ${D}worker secrets${X}                   ${B}tunnels${X}      ${D}list/get/del/config${X}
+  ${B}deployments${X}     ${D}list/versions/rollback${X}           ${B}d1${X}           ${D}SQL database${X}
+  ${B}kv${X}              ${D}ns/keys/get/set/del${X}              ${B}r2${X}           ${D}buckets${X}
   ${B}install${X}|doctor  ${D}check auth, tools, config${X}
 
   ${D}cf-api <command> -h     detailed help for a command${X}

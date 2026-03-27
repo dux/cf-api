@@ -1,10 +1,13 @@
 {
-  "name": "cf-tool",
+  "name": "cf-api",
   "version": "1.0.0",
   "description": "Cloudflare raw API tool with workflow shortcuts",
   "type": "module",
   "bin": {
     "cf-api": "./cli.js"
+  },
+  "scripts": {
+    "publish": "npm publish --access public"
   },
   "dependencies": {
     "commander": "^13.0.0",
