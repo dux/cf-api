@@ -48,24 +48,24 @@ program
     cf-api raw delete <path>         DELETE
 
   Shortcuts:
-    deploy         deploy worker from wrangler.toml
-    zones          list/get/settings (alias: domains)
-    dns            list/get/add/edit/del/export/import
-    purge          cache purge (all or by URL)
-    ssl            list/status/setting/set
-    firewall       rules/waf/access-rules (alias: fw)
-    tail           live log streaming from a worker
-    secret         list/set/del worker secrets
-    deployments    list/versions/rollback
-    workers        list/get/del/routes/subdomain
-    kv             ns/keys/get/set/del
-    r2             list/create/del
-    d1             list/create/del/query/export
-    pages          list/get/deployments
-    tunnels        list/get/del/config
+    deploy         deploy worker (serverless function) from wrangler.toml
+    zones          domains on your account (alias: domains)
+    dns            DNS records for a zone
+    purge          CDN cache purge (all or by URL)
+    ssl            TLS/SSL certificates and encryption mode
+    firewall       WAF rules, IP access rules (alias: fw)
+    tail           live log stream from a worker
+    secret         encrypted env vars for workers
+    deployments    deploy history, versions, rollback
+    workers        serverless scripts on CF edge
+    kv             KV - global key-value store
+    r2             R2 - S3-compatible object storage
+    d1             D1 - serverless SQL database (SQLite)
+    pages          Pages - static site hosting + functions
+    tunnels        Tunnel - expose local services via CF network
     accounts       list accounts
     user           current user
-    ips            CF IP ranges
+    ips            Cloudflare edge IP ranges
     install        check auth, tools, config
 
   Run cf-api <command> -h for details.
@@ -120,15 +120,17 @@ if (args.length === 0) {
 
   ${B}raw${X}  ${C}get${X}|${C}list${X}|${C}create${X}|${C}update${X}|${C}edit${X}|${C}delete${X} <path> [body]   ${D}any CF endpoint${X}
 
-  ${B}deploy${X}          ${D}worker from wrangler.toml${X}        ${B}accounts${X}     ${D}list accounts${X}
-  ${B}zones${X}|domains   ${D}list/get/settings${X}                ${B}user${X}|me      ${D}current user${X}
-  ${B}dns${X}             ${D}list/add/edit/del/export${X}         ${B}ips${X}          ${D}CF IP ranges${X}
-  ${B}purge${X}           ${D}cache purge${X}                      ${B}ssl${X}          ${D}certs + mode${X}
-  ${B}workers${X}|worker  ${D}list/get/del/routes${X}              ${B}firewall${X}|fw  ${D}rules/waf${X}
-  ${B}tail${X}|logs       ${D}live worker log stream${X}           ${B}pages${X}        ${D}list/get/deploys${X}
-  ${B}secret${X}          ${D}worker secrets${X}                   ${B}tunnels${X}      ${D}list/get/del/config${X}
-  ${B}deployments${X}     ${D}list/versions/rollback${X}           ${B}d1${X}           ${D}SQL database${X}
-  ${B}kv${X}              ${D}ns/keys/get/set/del${X}              ${B}r2${X}           ${D}buckets${X}
+  ${B}deploy${X}          ${D}deploy worker (serverless fn)${X}    ${B}ssl${X}        ${D}TLS certs + encryption mode${X}
+  ${B}zones${X}|domains   ${D}domains on your account${X}          ${B}firewall${X}|fw  ${D}WAF + IP access rules${X}
+  ${B}dns${X}             ${D}DNS records${X}                      ${B}pages${X}      ${D}static site hosting${X}
+  ${B}purge${X}           ${D}CDN cache purge${X}                  ${B}tunnels${X}    ${D}expose local via CF${X}
+  ${B}workers${X}|worker  ${D}serverless edge scripts${X}          ${B}accounts${X}   ${D}list accounts${X}
+  ${B}tail${X}|logs       ${D}live worker log stream${X}           ${B}user${X}|me    ${D}current user info${X}
+  ${B}secret${X}          ${D}encrypted worker env vars${X}        ${B}ips${X}        ${D}CF edge IP ranges${X}
+  ${B}deployments${X}     ${D}history + rollback${X}
+  ${B}kv${X}              ${D}global key-value store${X}
+  ${B}r2${X}              ${D}S3-compatible object storage${X}
+  ${B}d1${X}              ${D}serverless SQL database${X}
   ${B}install${X}|doctor  ${D}check auth, tools, config${X}
 
   ${D}cf-api <command> -h     detailed help for a command${X}
