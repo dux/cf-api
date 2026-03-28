@@ -28,6 +28,15 @@ import { register as secret } from './lib/commands/secret.js'
 import { register as d1 } from './lib/commands/d1.js'
 import { register as tail } from './lib/commands/tail.js'
 import { register as deployments } from './lib/commands/deployments.js'
+import { register as queues } from './lib/commands/queues.js'
+import { register as analytics } from './lib/commands/analytics.js'
+import { register as rules } from './lib/commands/rules.js'
+import { register as logpush } from './lib/commands/logpush.js'
+import { register as certs } from './lib/commands/certs.js'
+import { register as email } from './lib/commands/email.js'
+import { register as registrar } from './lib/commands/registrar.js'
+import { register as healthchecks } from './lib/commands/healthchecks.js'
+import { register as ai } from './lib/commands/ai.js'
 
 const program = new Command()
 
@@ -61,12 +70,21 @@ program
     kv             KV - global key-value store
     r2             R2 - S3-compatible object storage
     d1             D1 - serverless SQL database (SQLite)
+    queues         message queues between workers
     pages          Pages - static site hosting + functions
     tunnels        Tunnel - expose local services via CF network
+    analytics      zone & worker traffic stats
+    rules          page rules, redirects, rulesets
+    logpush        push logs to R2/S3/Datadog/Splunk
+    certs          origin CA + client certificates
+    email          email routing & forwarding
+    registrar      domain registration management
+    healthchecks   origin server health monitoring
     accounts       list accounts
     user           current user
     ips            Cloudflare edge IP ranges
     install        check auth, tools, config
+    ai             ask AI to run cf-api commands for you
 
   Run cf-api <command> -h for details.
   Run cf-api install for setup check.`)
@@ -96,6 +114,15 @@ secret(program)
 d1(program)
 tail(program)
 deployments(program)
+queues(program)
+analytics(program)
+rules(program)
+logpush(program)
+certs(program)
+email(program)
+registrar(program)
+healthchecks(program)
+ai(program)
 registerUser(program)
 registerIps(program)
 
@@ -120,18 +147,20 @@ if (args.length === 0) {
 
   ${B}raw${X}  ${C}get${X}|${C}list${X}|${C}create${X}|${C}update${X}|${C}edit${X}|${C}delete${X} <path> [body]   ${D}any CF endpoint${X}
 
-  ${B}deploy${X}          ${D}deploy worker (serverless fn)${X}    ${B}ssl${X}        ${D}TLS certs + encryption mode${X}
-  ${B}zones${X}|domains   ${D}domains on your account${X}          ${B}firewall${X}|fw  ${D}WAF + IP access rules${X}
-  ${B}dns${X}             ${D}DNS records${X}                      ${B}pages${X}      ${D}static site hosting${X}
-  ${B}purge${X}           ${D}CDN cache purge${X}                  ${B}tunnels${X}    ${D}expose local via CF${X}
-  ${B}workers${X}|worker  ${D}serverless edge scripts${X}          ${B}accounts${X}   ${D}list accounts${X}
-  ${B}tail${X}|logs       ${D}live worker log stream${X}           ${B}user${X}|me    ${D}current user info${X}
-  ${B}secret${X}          ${D}encrypted worker env vars${X}        ${B}ips${X}        ${D}CF edge IP ranges${X}
-  ${B}deployments${X}     ${D}history + rollback${X}
-  ${B}kv${X}              ${D}global key-value store${X}
-  ${B}r2${X}              ${D}S3-compatible object storage${X}
-  ${B}d1${X}              ${D}serverless SQL database${X}
-  ${B}install${X}|doctor  ${D}check auth, tools, config${X}
+  ${B}deploy${X}          ${D}deploy worker (serverless fn)${X}    ${B}ssl${X}           ${D}TLS certs + encryption mode${X}
+  ${B}zones${X}|domains   ${D}domains on your account${X}          ${B}firewall${X}|fw   ${D}WAF + IP access rules${X}
+  ${B}dns${X}             ${D}DNS records${X}                      ${B}pages${X}         ${D}static site hosting${X}
+  ${B}purge${X}           ${D}CDN cache purge${X}                  ${B}tunnels${X}       ${D}expose local via CF${X}
+  ${B}workers${X}|worker  ${D}serverless edge scripts${X}          ${B}accounts${X}      ${D}list accounts${X}
+  ${B}tail${X}|logs       ${D}live worker log stream${X}           ${B}user${X}|me       ${D}current user info${X}
+  ${B}secret${X}          ${D}encrypted worker env vars${X}        ${B}ips${X}           ${D}CF edge IP ranges${X}
+  ${B}deployments${X}     ${D}history + rollback${X}               ${B}analytics${X}|stats ${D}traffic stats${X}
+  ${B}kv${X}              ${D}global key-value store${X}            ${B}rules${X}         ${D}page rules + redirects${X}
+  ${B}r2${X}              ${D}S3-compatible object storage${X}      ${B}logpush${X}       ${D}push logs to R2/S3/etc${X}
+  ${B}d1${X}              ${D}serverless SQL database${X}           ${B}certs${X}         ${D}origin CA + client certs${X}
+  ${B}queues${X}|queue    ${D}message queues${X}                   ${B}email${X}|mail    ${D}email routing + forwarding${X}
+  ${B}healthchecks${X}    ${D}origin health monitoring${X}          ${B}registrar${X}     ${D}domain registration${X}
+  ${B}install${X}|doctor  ${D}check auth, tools, config${X}       ${B}ai${X}            ${D}AI runs cf-api for you${X}
 
   ${D}cf-api <command> -h     detailed help for a command${X}
   ${D}cf-api --help           full help with all options${X}

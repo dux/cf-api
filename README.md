@@ -14,7 +14,7 @@ The Cloudflare tooling ecosystem is fragmented - `wrangler` handles Workers/Page
 - **Table output** - readable tables by default, `-j` for JSON when you need it
 - **Minimal deps** - commander (CLI framework) + smol-toml (TOML parsing). That's it.
 - **ESM** - `"type": "module"`, works on Node 18+ and Bun
-- **Smart auth** - loads `.env` from cwd and `~/.env`, worker commands prefer Global API Key
+- **Smart auth** - loads `config/cf-api.env`, `cf-api.env`, `.env`, `~/.env` (first match wins per var)
 - **Zone caching** - zone name-to-ID lookups cached in `/tmp` for 1 hour
 
 ## What it covers
@@ -35,8 +35,16 @@ The Cloudflare tooling ecosystem is fragmented - `wrangler` handles Workers/Page
 | `kv` | Workers KV | Global low-latency key-value store |
 | `r2` | R2 | S3-compatible object storage (no egress fees) |
 | `d1` | D1 | Serverless SQL database (SQLite at the edge) |
+| `queues` | Queues | Durable message queues between workers |
 | `pages` | Pages | Static site hosting with edge functions |
 | `tunnels` | Tunnel | Expose local services through CF network (replaces VPN) |
+| `analytics` | Analytics | Zone & worker traffic stats (requests, bandwidth, errors) |
+| `rules` | Rules | Page rules, redirect rules, rulesets |
+| `logpush` | Logpush | Push logs to R2, S3, Datadog, Splunk |
+| `certs` | Certificates | Origin CA certs + client certs (mTLS) |
+| `email` | Email Routing | Forward emails to addresses or workers |
+| `registrar` | Registrar | Domain registration at cost, WHOIS privacy |
+| `healthchecks` | Healthchecks | Monitor origin server health (HTTP/HTTPS/TCP) |
 | `accounts` | Accounts | List CF accounts |
 | `user` | User | Current user info |
 | `ips` | Network | Cloudflare edge IP ranges |
@@ -55,18 +63,30 @@ Requires Node 18+ (native fetch). For `cf-api deploy`, you also need [esbuild](h
 
 ## Auth
 
-Set environment variables in your shell profile or `.env` file (loaded automatically from cwd or `~/.env`):
+Set environment variables in your shell profile or an env file. Files are loaded automatically in this order (first match wins per variable):
+
+1. `./config/cf-api.env` - project config directory
+2. `./cf-api.env` - project root
+3. `./.env` - generic dotenv
+4. `~/.env` - global fallback
 
 ```bash
 # Option 1: API Token (recommended for read operations)
-export CF_API_TOKEN="your-token"
+CF_API_TOKEN="your-token"
 
 # Option 2: Global API Key (full permissions, required for deploy/workers)
-export CF_API_KEY="your-global-key"
-export CF_API_EMAIL="your-email@example.com"
+CF_API_KEY="your-global-key"
+CF_API_EMAIL="your-email@example.com"
 
 # Optional: skip account ID auto-detection
-export CF_ACCOUNT_ID="your-account-id"
+CF_ACCOUNT_ID="your-account-id"
+
+# R2 object operations (S3-compatible API - separate from CF API auth)
+# Generate at: CF dashboard > R2 > Manage R2 API Tokens
+R2_ACCESS_KEY_ID="your-r2-access-key"
+R2_SECRET_ACCESS_KEY="your-r2-secret-key"
+R2_BUCKET="my-bucket"              # default bucket for object commands
+R2_URL="https://cdn.example.com"         # public URL base (for upload-sha1 output)
 ```
 
 **Important:** API tokens often lack Workers write permissions. `cf-api deploy` and all worker-related commands (tail, secret, deployments) prefer Global API Key auth when both are set. If you only have a token and deploy fails with auth errors, add `CF_API_KEY` + `CF_API_EMAIL`.
@@ -247,12 +267,46 @@ cf-api kv del ACCOUNT_ID NAMESPACE_ID mykey
 
 ### R2 (object storage)
 
-R2 is S3-compatible object storage with zero egress fees. Use it for files, images, backups, static assets. Works with any S3 client.
+R2 is S3-compatible object storage with zero egress fees. Use it for files, images, backups, static assets.
+
+Bucket management uses standard CF API auth. Object operations use a separate R2 S3 token (generate at CF dashboard > R2 > Manage R2 API Tokens).
+
+Account ID and bucket are resolved from `--account`/`-a` and `--bucket`/`-b` flags, or from `CF_ACCOUNT_ID` and `R2_BUCKET` env vars. Set them once in your env file and skip repeating them on every call.
 
 ```bash
-cf-api r2 list ACCOUNT_ID
-cf-api r2 create ACCOUNT_ID my-bucket
-cf-api r2 del ACCOUNT_ID my-bucket
+# bucket management (CF_API_TOKEN or CF_API_KEY)
+cf-api r2 list                             # list buckets
+cf-api r2 info my-bucket                   # bucket details
+cf-api r2 create my-bucket                 # create bucket
+cf-api r2 del my-bucket                    # delete bucket
+cf-api r2 cors my-bucket                   # CORS policy
+cf-api r2 metrics                          # account R2 usage
+
+# object operations (R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY)
+cf-api r2 objects                          # list all objects in R2_BUCKET
+cf-api r2 objects uploads/                 # filter by prefix
+cf-api r2 cat path/to/file.txt             # print to stdout
+cf-api r2 put path/to/remote.txt ./local   # upload file
+cf-api r2 rm path/to/file.txt              # delete object
+
+# content-addressed upload (SHA1 hash as key)
+cf-api r2 upload-sha1 ./photo.jpg          # -> hash/a1b2c3...jpg
+cf-api r2 upload-sha1 https://example.com/img.png  # download + upload
+cf-api r2 sha1 ./data.json                 # alias for upload-sha1
+
+# override account/bucket per-call
+cf-api r2 -a ACCT_ID -b other-bucket objects
+cf-api r2 objects --account ACCT_ID --bucket other-bucket
+```
+
+The `upload-sha1` command computes the SHA1 hash of the file content and uploads to `hash/<sha1><ext>`. Same file from any source always lands at the same key - useful for deduplication. Accepts local file paths or HTTP(S) URLs. If `R2_URL` is set, the public URL is printed after upload.
+
+R2 env vars:
+```bash
+R2_ACCESS_KEY_ID=your-access-key        # required for object ops
+R2_SECRET_ACCESS_KEY=your-secret-key    # required for object ops
+R2_BUCKET=my-bucket                     # default bucket (skip --bucket)
+R2_URL=https://cdn.example.com          # public URL base (upload-sha1 output)
 ```
 
 ### D1 (SQL database)
@@ -291,6 +345,125 @@ cf-api tunnels list ACCOUNT_ID
 cf-api tunnels get ACCOUNT_ID TUNNEL_ID
 cf-api tunnels del ACCOUNT_ID TUNNEL_ID
 cf-api tunnels config ACCOUNT_ID TUNNEL_ID
+```
+
+### Queues (message queues)
+
+Cloudflare Queues provide durable, at-least-once message delivery between Workers. Producers send messages, consumers process them in batches.
+
+```bash
+cf-api queues list ACCOUNT_ID
+cf-api queues get ACCOUNT_ID my-queue
+cf-api queues create ACCOUNT_ID my-queue
+cf-api queues del ACCOUNT_ID my-queue
+cf-api queues consumers ACCOUNT_ID my-queue           # list consumers
+cf-api queues add-consumer ACCOUNT_ID my-queue my-worker
+cf-api queues add-consumer ACCOUNT_ID my-queue my-worker --batch 50 --retries 5
+cf-api queues del-consumer ACCOUNT_ID my-queue CONSUMER_ID
+cf-api queues send ACCOUNT_ID my-queue '{"event":"test"}'
+cf-api queues purge ACCOUNT_ID my-queue
+```
+
+Queues accept queue name or queue ID. Names are resolved automatically.
+
+### Analytics (traffic stats)
+
+View request counts, bandwidth, threats, status codes, and more for zones and workers.
+
+```bash
+cf-api analytics zone example.com                  # last 24h summary
+cf-api analytics zone example.com --since -10080   # last 7 days (minutes)
+cf-api analytics dns example.com                   # DNS query analytics
+cf-api analytics worker ACCOUNT_ID my-worker       # worker request/error stats
+```
+
+### Rules (page rules, redirects, rulesets)
+
+Page rules are legacy URL-based actions (forwarding, caching, SSL mode). Rulesets are the modern rule engine for redirects, transforms, and rate limiting.
+
+```bash
+cf-api rules page list example.com
+cf-api rules page get example.com RULE_ID
+cf-api rules page create example.com "*.example.com/*" forwarding_url=301:https://new.com/$2
+cf-api rules page del example.com RULE_ID
+cf-api rules rulesets example.com                  # list all rulesets
+cf-api rules ruleset example.com RULESET_ID        # get ruleset details
+cf-api rules redirects example.com                 # list redirect rules
+cf-api rules redirect-add example.com /old /new 301
+```
+
+### Logpush (log export)
+
+Push Cloudflare logs to external storage - R2, S3, Datadog, Splunk, and more. Stream HTTP requests, firewall events, worker traces.
+
+```bash
+cf-api logpush list example.com
+cf-api logpush get example.com JOB_ID
+cf-api logpush datasets example.com                # available log datasets
+cf-api logpush fields example.com http_requests    # fields for a dataset
+cf-api logpush create example.com --dataset http_requests --dest r2://bucket/logs
+cf-api logpush edit example.com JOB_ID --enabled false
+cf-api logpush del example.com JOB_ID
+```
+
+### Certificates (origin CA + client certs)
+
+Origin CA certificates are signed by Cloudflare and trusted by the CF proxy - use them on your origin server for full/strict SSL. Client certificates enable mTLS for API Shield.
+
+```bash
+cf-api certs origin list example.com
+cf-api certs origin get CERT_ID
+cf-api certs origin create example.com --hostnames example.com,*.example.com
+cf-api certs origin create example.com --hostnames api.example.com --days 365
+cf-api certs origin revoke CERT_ID
+cf-api certs client list example.com
+cf-api certs client create example.com --csr ./client.csr --days 3650
+cf-api certs client revoke example.com CERT_ID
+```
+
+**Warning:** Origin CA private keys are shown only once at creation time. Use `-j` to get the full PEM output and save it immediately.
+
+### Email Routing
+
+Route incoming email by address or catch-all rule. No mail server needed - just forward to existing addresses or process with Workers.
+
+```bash
+cf-api email settings example.com                  # routing status
+cf-api email rules list example.com
+cf-api email rules create example.com info@example.com dest@gmail.com
+cf-api email rules del example.com RULE_ID
+cf-api email catch-all example.com                 # view catch-all rule
+cf-api email catch-all-set example.com dest@gmail.com
+cf-api email catch-all-set example.com drop         # discard unmatched
+cf-api email addresses list example.com             # verified destinations
+cf-api email addresses add example.com dest@gmail.com
+```
+
+### Registrar (domain registration)
+
+Cloudflare Registrar offers at-cost domain registration with no markup. WHOIS privacy included.
+
+```bash
+cf-api registrar list ACCOUNT_ID
+cf-api registrar get ACCOUNT_ID example.com
+cf-api registrar check ACCOUNT_ID example.com       # check availability
+cf-api registrar update ACCOUNT_ID example.com --auto-renew true
+cf-api registrar update ACCOUNT_ID example.com --locked true
+cf-api registrar contacts ACCOUNT_ID
+```
+
+### Healthchecks (origin monitoring)
+
+Periodic health checks from Cloudflare edge to your origin server. Supports HTTP, HTTPS, and TCP. Get notified when your origin goes down.
+
+```bash
+cf-api healthchecks list example.com
+cf-api healthchecks get example.com CHECK_ID
+cf-api healthchecks create example.com --name "API check" --address api.example.com
+cf-api healthchecks create example.com --name "TCP DB" --address db.example.com --port 5432 --type TCP
+cf-api healthchecks edit example.com CHECK_ID --interval 120
+cf-api healthchecks del example.com CHECK_ID
+cf-api healthchecks preview example.com CHECK_ID     # run one-time check
 ```
 
 ### Account & User
